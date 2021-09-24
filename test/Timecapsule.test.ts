@@ -52,6 +52,7 @@ describe('Timecapsule', () => {
         .send(signer2.address, futureTimestamp, { value: ethers.utils.parseEther('1.23') });
 
       expect(tx).toHaveEmittedWith(contract, 'CapsuleSent', [
+        BigNumber.from(0),
         signer1.address,
         signer2.address,
         ethers.utils.parseEther('1.23'),
@@ -68,6 +69,68 @@ describe('Timecapsule', () => {
         ).toBeRevertedWith('Amount must be >0');
 
         expect(await contract.getCapsulesCount(signer2.address)).toEqual(BigNumber.from(0));
+      });
+    });
+  });
+
+  describe('open', () => {
+    describe('unlocked', () => {
+      beforeEach(async () => {
+        await contract
+          .connect(signer1)
+          .send(signer2.address, pastTimestamp, { value: ethers.utils.parseEther('1.23') });
+
+        await contract
+          .connect(signer1)
+          .send(signer2.address, futureTimestamp, { value: ethers.utils.parseEther('2') });
+      });
+
+      // it('transfers the balance to the recipient', async () => {
+      //   const originalBalance = await signer2.getBalance();
+      //   await contract.connect(signer2).open(0);
+
+      //   expect(await signer2.getBalance()).toEqual(
+      //     originalBalance.add(ethers.utils.parseEther('1.23')),
+      //   );
+      // });
+
+      it('reduces pending balance of the recipient by opened capsule amount', async () => {
+        expect(await contract.getPendingBalance(signer2.address)).toEqual(
+          ethers.utils.parseEther('3.23'),
+        );
+
+        await contract.connect(signer2).open(0);
+
+        expect(await contract.getPendingBalance(signer2.address)).toEqual(
+          ethers.utils.parseEther('2'),
+        );
+      });
+
+      it('emits a CapsuleOpened event', async () => {
+        const tx = await contract.connect(signer2).open(0);
+        expect(tx).toHaveEmittedWith(contract, 'CapsuleOpened', [
+          BigNumber.from(0),
+          signer2.address,
+          ethers.utils.parseEther('1.23'),
+        ]);
+      });
+    });
+
+    describe('not yet unlocked', () => {
+      beforeEach(async () => {
+        await contract
+          .connect(signer1)
+          .send(signer2.address, futureTimestamp, { value: ethers.utils.parseEther('1.23') });
+      });
+
+      it('reverts and does not open or modify balance', async () => {
+        expect(contract.connect(signer2).open(0)).toBeRevertedWith('Not unlocked yet');
+
+        const capsule = await contract.getCapsule(signer2.address, 0);
+        expect(capsule.opened).toEqual(false);
+        expect(await contract.getPendingBalance(signer2.address)).toEqual(
+          ethers.utils.parseEther('1.23'),
+        );
       });
     });
   });

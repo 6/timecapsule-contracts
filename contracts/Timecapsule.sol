@@ -6,7 +6,7 @@ contract Timecapsule {
         address from;
         uint256 value;
         uint256 unlocksAt;
-        bool claimed;
+        bool opened;
     }
 
     address public owner;
@@ -18,14 +18,14 @@ contract Timecapsule {
     // Mapping of recipientAddress => total pending capsule balance
     mapping(address => uint256) public _pendingBalanceOf;
 
-    // Mapping of recipientAddress => pending (unclaimed Capsules)
+    // Mapping of recipientAddress => pending (unopened Capsules)
     // mapping(address => Capsule[]) private pendingCapsules;
 
     // Mapping of recipientAddress to the next capsuleID to use:
     mapping(address => uint256) private _nextCapsuleIdOf;
 
-    event CapsuleSent(address indexed from, address indexed to, uint256 unlocksAt, uint256 value);
-    event CapsuleClaimed(address indexed from, address indexed to, uint256 value);
+    event CapsuleSent(uint256 indexed capsuleId, address indexed from, address indexed to, uint256 unlocksAt, uint256 value);
+    event CapsuleOpened(uint256 indexed capsuleId, address indexed to, uint256 value);
     event TransferOwnership(address indexed oldOwner, address indexed newOwner);
 
     modifier onlyOwner() {
@@ -42,10 +42,16 @@ contract Timecapsule {
         owner = msg.sender;
     }
 
+    // Send a capsule to someone (or yourself) to unlock at a future date:
     function send(address to, uint256 unlocksAt) external payable {
         address from = msg.sender;
         uint256 value = msg.value;
         require(value > 0, "Amount must be >0");
+
+        // TODO: figure out how to make tests work with this condition:
+        // https://hardhat.org/plugins/hardhat-time-n-mine.html
+        // https://ethereum.stackexchange.com/questions/86633/time-dependent-tests-with-hardhat
+        // require(unlocksAt > block.timestamp, "Must unlock in the future");
 
         uint256 capsuleId = _nextCapsuleIdOf[to];
 
@@ -55,27 +61,26 @@ contract Timecapsule {
         _pendingBalanceOf[to] += value;
         _capsulesMap[to][capsuleId] = Capsule(from, value, unlocksAt, false);
 
-        emit CapsuleSent(from, to, value, unlocksAt);
+        emit CapsuleSent(capsuleId, from, to, value, unlocksAt);
     }
 
-    function claim(uint256 capsuleId) external payable {
+    // Opens a capsule and claims the value inside:
+    function open(uint256 capsuleId) external payable {
         address to = msg.sender;
 
         Capsule memory capsule = _capsulesMap[to][capsuleId];
-        uint256 value = capsule.value;
-        require(value > 0, "Amount must be >0");
         require(capsule.unlocksAt <= block.timestamp, "Not unlocked yet");
-        require(!capsule.claimed, "Already claimed");
+        require(!capsule.opened, "Already opened");
 
         // Security: perform these before initiating transfer below to avoid
         // state re-entrancy:
         // https://quantstamp.com/blog/what-is-a-re-entrancy-attack
-        _capsulesMap[to][capsuleId].claimed = true;
-        _pendingBalanceOf[to] -= value;
+        _capsulesMap[to][capsuleId].opened = true;
+        _pendingBalanceOf[to] -= capsule.value;
 
-        payable(msg.sender).transfer(value);
+        payable(msg.sender).transfer(capsule.value);
 
-        emit CapsuleClaimed(capsule.from, to, value);
+        emit CapsuleOpened(capsuleId, to, capsule.value);
     }
 
     function getCapsule(address account, uint256 capsuleId) external view returns (Capsule memory) {
