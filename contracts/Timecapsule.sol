@@ -6,16 +6,17 @@ contract Timecapsule {
         address from;
         uint256 value;
         uint256 unlocksAt;
+        bool claimed;
     }
 
     address public owner;
 
     // Mapping of { recipientAddress => { capsuleId => Capsule } }
     // Note: this means a given sender can only send one capsule to a recipient
-    mapping(address => mapping(uint256 => Capsule)) private _pendingCapsulesMap;
+    mapping(address => mapping(uint256 => Capsule)) private _capsulesMap;
 
     // Mapping of recipientAddress => total pending capsule balance
-    mapping(address => uint256) public pendingBalanceOf;
+    mapping(address => uint256) public _pendingBalanceOf;
 
     // Mapping of recipientAddress => pending (unclaimed Capsules)
     // mapping(address => Capsule[]) private pendingCapsules;
@@ -51,8 +52,8 @@ contract Timecapsule {
         // Increment capsule ID counter:
         _nextCapsuleIdOf[to] += 1;
 
-        _pendingCapsulesMap[to][capsuleId] = Capsule(from, value, unlocksAt);
-        pendingBalanceOf[to] += value;
+        _pendingBalanceOf[to] += value;
+        _capsulesMap[to][capsuleId] = Capsule(from, value, unlocksAt, false);
 
         emit CapsuleSent(from, to, value, unlocksAt);
     }
@@ -60,20 +61,33 @@ contract Timecapsule {
     function claim(uint256 capsuleId) external payable {
         address to = msg.sender;
 
-        Capsule memory capsule = _pendingCapsulesMap[to][capsuleId];
+        Capsule memory capsule = _capsulesMap[to][capsuleId];
         uint256 value = capsule.value;
         require(value > 0, "Amount must be >0");
         require(capsule.unlocksAt <= block.timestamp, "Not unlocked yet");
+        require(!capsule.claimed, "Already claimed");
 
         // Security: perform these before initiating transfer below to avoid
         // state re-entrancy:
         // https://quantstamp.com/blog/what-is-a-re-entrancy-attack
-        delete _pendingCapsulesMap[to][capsuleId];
-        pendingBalanceOf[to] -= value;
+        _capsulesMap[to][capsuleId].claimed = true;
+        _pendingBalanceOf[to] -= value;
 
         payable(msg.sender).transfer(value);
 
         emit CapsuleClaimed(capsule.from, to, value);
+    }
+
+    function getCapsule(address account, uint256 capsuleId) external view returns (Capsule memory) {
+        return _capsulesMap[account][capsuleId];
+    }
+
+    function getPendingBalance(address account) external view returns (uint256) {
+        return _pendingBalanceOf[account];
+    }
+
+    function getCapsulesCount(address account) external view returns (uint256) {
+        return _nextCapsuleIdOf[account];
     }
 
     /**

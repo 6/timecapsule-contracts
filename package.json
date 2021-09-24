@@ -6,7 +6,7 @@
   "scripts": {
     "check-types": "tsc --noEmit",
     "compile": "hardhat compile",
-    "compile:watch": "nodemon --watch \"contracts/**\" --ext \"sol,vy\" --exec \"yarn compile\"",
+    "compile:watch": "nodemon --watch \"contracts/**\" --ext \"sol\" --exec \"yarn compile\"",
     "deduplicate": "yarn-deduplicate && yarn install",
     "deploy": "hardhat run scripts/deploy.ts",
     "deploy:hardhat": "yarn deploy --network hardhat",
