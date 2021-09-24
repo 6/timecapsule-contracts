@@ -94,16 +94,18 @@ describe('Timecapsule', () => {
       //   );
       // });
 
-      it('reduces pending balance of the recipient by opened capsule amount', async () => {
+      it('reduces pending balance of the recipient and sets capsule opened property', async () => {
         expect(await contract.getPendingBalance(signer2.address)).toEqual(
           ethers.utils.parseEther('3.23'),
         );
+        expect((await contract.getCapsule(signer2.address, 0)).opened).toEqual(false);
 
         await contract.connect(signer2).open(0);
 
         expect(await contract.getPendingBalance(signer2.address)).toEqual(
           ethers.utils.parseEther('2'),
         );
+        expect((await contract.getCapsule(signer2.address, 0)).opened).toEqual(true);
       });
 
       it('emits a CapsuleOpened event', async () => {
@@ -131,6 +133,21 @@ describe('Timecapsule', () => {
         expect(await contract.getPendingBalance(signer2.address)).toEqual(
           ethers.utils.parseEther('1.23'),
         );
+      });
+    });
+
+    describe('already opened', () => {
+      beforeEach(async () => {
+        await contract
+          .connect(signer1)
+          .send(signer2.address, pastTimestamp, { value: ethers.utils.parseEther('1.23') });
+        await contract.connect(signer2).open(0);
+      });
+
+      it('reverts and does not modify balance', async () => {
+        expect(contract.connect(signer2).open(0)).toBeRevertedWith('Already opened');
+
+        expect(await contract.getPendingBalance(signer2.address)).toEqual(BigNumber.from(0));
       });
     });
   });
