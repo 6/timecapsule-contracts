@@ -50,11 +50,14 @@ describe('Timecapsule', () => {
       const originalBalance = await signer1.getBalance();
 
       const value = ethers.utils.parseEther('1.23');
-      await contract.connect(signer1).send(signer2.address, futureTimestamp, { value });
+      const tx = await contract.connect(signer1).send(signer2.address, futureTimestamp, { value });
+      const txReceipt = await tx.wait();
+      const txFee = txReceipt.gasUsed * txReceipt.effectiveGasPrice;
+
+      expect(tx.value).toEqual(value);
 
       const newBalance = await signer1.getBalance();
-      // TODO: how to check exact amount?
-      expect(originalBalance.gt(newBalance)).toBe(true);
+      expect(newBalance).toEqual(originalBalance.sub(value).sub(txFee));
     });
 
     it('emits a CapsuleSent event', async () => {
@@ -98,11 +101,13 @@ describe('Timecapsule', () => {
 
       it('transfers the balance to the recipient', async () => {
         const originalBalance = await signer2.getBalance();
-        await contract.connect(signer2).open(0);
+
+        const tx = await contract.connect(signer2).open(0);
+        const txReceipt = await tx.wait();
+        const txFee = txReceipt.gasUsed * txReceipt.effectiveGasPrice;
 
         const newBalance = await signer2.getBalance();
-        // TODO: how to check exact amounts?
-        expect(newBalance.gt(originalBalance)).toBe(true);
+        expect(newBalance).toEqual(originalBalance.add(ethers.utils.parseEther('1.23').sub(txFee)));
       });
 
       it('reduces pending balance of the recipient and sets capsule opened property', async () => {

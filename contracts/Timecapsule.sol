@@ -48,10 +48,11 @@ contract Timecapsule {
         uint256 value = msg.value;
         require(value > 0, "Amount must be >0");
 
-        // TODO: figure out how to make tests work with this condition:
+        // TODO: figure out how to make tests work with below condition:
+        // require(unlocksAt > block.timestamp, "Must unlock in the future");
+        //
         // https://hardhat.org/plugins/hardhat-time-n-mine.html
         // https://ethereum.stackexchange.com/questions/86633/time-dependent-tests-with-hardhat
-        // require(unlocksAt > block.timestamp, "Must unlock in the future");
 
         uint256 capsuleId = _nextCapsuleIdOf[to];
 
