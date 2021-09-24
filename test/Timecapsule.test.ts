@@ -59,12 +59,16 @@ describe('Timecapsule', () => {
       ]);
     });
 
-    it('fails if amount is <= 0', async () => {
-      expect(
-        contract
-          .connect(signer1)
-          .send(signer2.address, futureTimestamp, { value: ethers.utils.parseEther('0') }),
-      ).toBeRevertedWith('Amount must be >0');
+    describe('amount is <= 0', () => {
+      it('reverts and does not create capsule', async () => {
+        expect(
+          contract
+            .connect(signer1)
+            .send(signer2.address, futureTimestamp, { value: ethers.utils.parseEther('0') }),
+        ).toBeRevertedWith('Amount must be >0');
+
+        expect(await contract.getCapsulesCount(signer2.address)).toEqual(BigNumber.from(0));
+      });
     });
   });
 
