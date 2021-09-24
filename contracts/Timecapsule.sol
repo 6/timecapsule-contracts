@@ -48,11 +48,11 @@ contract Timecapsule {
 
         uint256 capsuleId = _nextCapsuleIdOf[to];
 
-        _pendingCapsulesMap[to][capsuleId] = Capsule(from, value, unlocksAt);
-        pendingBalanceOf[to] += value;
-
         // Increment capsule ID counter:
         _nextCapsuleIdOf[to] += 1;
+
+        _pendingCapsulesMap[to][capsuleId] = Capsule(from, value, unlocksAt);
+        pendingBalanceOf[to] += value;
 
         emit CapsuleSent(from, to, value, unlocksAt);
     }
