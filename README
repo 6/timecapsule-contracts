@@ -1,0 +1,12 @@
+future-gift-contract
+
+compile contracts:
+$ yarn compile
+
+run tests:
+$ yarn test
+
+deployed and verified on testnets:
+
+- rinkeby: https://rinkeby.etherscan.io/address/TODO#code
+- polygon: https://mumbai.polygonscan.com/address/TODO#code

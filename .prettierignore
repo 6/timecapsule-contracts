@@ -1,0 +1,6 @@
+coverage/
+__mocks__
+tmp/
+cache/
+artifacts/
+build/
