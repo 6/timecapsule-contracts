@@ -7,8 +7,8 @@ const main = async () => {
 
   console.log('Account balance:', (await deployer.getBalance()).toString());
 
-  const TokenContractFactory = await ethers.getContractFactory('TokenSolidity');
-  const token = await TokenContractFactory.deploy();
+  const contractFactory = await ethers.getContractFactory('Timecapsule');
+  const token = await contractFactory.deploy();
 
   console.log('Token address:', token.address);
 };

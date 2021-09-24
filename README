@@ -1,4 +1,4 @@
-future-gift-contract
+timecapsule-contracts
 
 compile contracts:
 $ yarn compile
