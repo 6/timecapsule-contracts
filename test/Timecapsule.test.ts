@@ -46,6 +46,17 @@ describe('Timecapsule', () => {
       expect(capsule.unlocksAt).toEqual(futureTimestamp);
     });
 
+    it('transfers the value from the senders account to the contract', async () => {
+      const originalBalance = await signer1.getBalance();
+
+      const value = ethers.utils.parseEther('1.23');
+      await contract.connect(signer1).send(signer2.address, futureTimestamp, { value });
+
+      const newBalance = await signer1.getBalance();
+      // TODO: how to check exact amount?
+      expect(originalBalance.gt(newBalance)).toBe(true);
+    });
+
     it('emits a CapsuleSent event', async () => {
       const tx = await contract
         .connect(signer1)
@@ -85,14 +96,14 @@ describe('Timecapsule', () => {
           .send(signer2.address, futureTimestamp, { value: ethers.utils.parseEther('2') });
       });
 
-      // it('transfers the balance to the recipient', async () => {
-      //   const originalBalance = await signer2.getBalance();
-      //   await contract.connect(signer2).open(0);
+      it('transfers the balance to the recipient', async () => {
+        const originalBalance = await signer2.getBalance();
+        await contract.connect(signer2).open(0);
 
-      //   expect(await signer2.getBalance()).toEqual(
-      //     originalBalance.add(ethers.utils.parseEther('1.23')),
-      //   );
-      // });
+        const newBalance = await signer2.getBalance();
+        // TODO: how to check exact amounts?
+        expect(newBalance.gt(originalBalance)).toBe(true);
+      });
 
       it('reduces pending balance of the recipient and sets capsule opened property', async () => {
         expect(await contract.getPendingBalance(signer2.address)).toEqual(
