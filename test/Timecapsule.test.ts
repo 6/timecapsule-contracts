@@ -93,7 +93,7 @@ describe('Timecapsule', () => {
   });
 
   describe('open', () => {
-    describe('unlocked', () => {
+    describe('unlocked, sent to another account', () => {
       beforeEach(async () => {
         await contract
           .connect(signer1)
@@ -136,6 +136,25 @@ describe('Timecapsule', () => {
           signer2.address,
           ethers.utils.parseEther('1.23'),
         ]);
+      });
+    });
+
+    describe('unlocked, sent to self', () => {
+      beforeEach(async () => {
+        await contract
+          .connect(signer1)
+          .send(signer1.address, pastTimestamp, { value: ethers.utils.parseEther('1.23') });
+      });
+
+      it('transfers the balance to self', async () => {
+        const originalBalance = await signer1.getBalance();
+
+        const tx = await contract.connect(signer1).open(0);
+        const txReceipt = await tx.wait();
+        const txFee = txReceipt.gasUsed * txReceipt.effectiveGasPrice;
+
+        const newBalance = await signer1.getBalance();
+        expect(newBalance).toEqual(originalBalance.add(ethers.utils.parseEther('1.23').sub(txFee)));
       });
     });
 
