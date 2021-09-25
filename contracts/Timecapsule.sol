@@ -13,14 +13,10 @@ contract Timecapsule {
     address public owner;
 
     // Mapping of { recipientAddress => { capsuleId => Capsule } }
-    // Note: this means a given sender can only send one capsule to a recipient
     mapping(address => mapping(uint256 => Capsule)) private _capsulesMap;
 
     // Mapping of recipientAddress => total pending capsule balance
     mapping(address => uint256) public _pendingBalanceOf;
-
-    // Mapping of recipientAddress => pending (unopened Capsules)
-    // mapping(address => Capsule[]) private pendingCapsules;
 
     // Mapping of recipientAddress to the next capsuleID to use:
     mapping(address => uint256) private _nextCapsuleIdOf;
@@ -67,6 +63,7 @@ contract Timecapsule {
         emit CapsuleSent(capsuleId, from, to, value, unlocksAt);
     }
 
+    // Allows sender to undo capsule send for up to 24 hours:
     function undoSend(address to, uint256 capsuleId) external payable {
         Capsule memory capsule = _capsulesMap[to][capsuleId];
         require(capsule.from == msg.sender, "You did not send this capsule");
