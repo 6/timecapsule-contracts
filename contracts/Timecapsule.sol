@@ -5,6 +5,7 @@ contract Timecapsule {
     struct Capsule {
         address from;
         uint256 value;
+        uint256 createdAt;
         uint256 unlocksAt;
         bool opened;
     }
@@ -26,6 +27,7 @@ contract Timecapsule {
 
     event CapsuleSent(uint256 indexed capsuleId, address indexed from, address indexed to, uint256 unlocksAt, uint256 value);
     event CapsuleOpened(uint256 indexed capsuleId, address indexed to, uint256 value);
+    event UndidCapsuleSend(uint256 indexed capsuleId, address indexed from, address indexed to, uint256 unlocksAt, uint256 value);
     event TransferOwnership(address indexed oldOwner, address indexed newOwner);
 
     modifier onlyOwner() {
@@ -60,9 +62,29 @@ contract Timecapsule {
         _nextCapsuleIdOf[to] += 1;
 
         _pendingBalanceOf[to] += value;
-        _capsulesMap[to][capsuleId] = Capsule(from, value, unlocksAt, false);
+        _capsulesMap[to][capsuleId] = Capsule(from, value, block.timestamp, unlocksAt, false);
 
         emit CapsuleSent(capsuleId, from, to, value, unlocksAt);
+    }
+
+    function undoSend(address to, uint256 capsuleId) external payable {
+        Capsule memory capsule = _capsulesMap[to][capsuleId];
+        require(capsule.from == msg.sender, "You did not send this capsule");
+        require(!capsule.opened, "Capsule already opened");
+
+        uint256 mostRecentCapsuleId = _nextCapsuleIdOf[to] - 1;
+        require(capsuleId == mostRecentCapsuleId, "Can only undo most recent");
+
+        uint256 undoExpiresAt = capsule.createdAt + 86400;
+        require(undoExpiresAt >= block.timestamp, "Undo capability expired");
+
+        _pendingBalanceOf[to] -= capsule.value;
+        _nextCapsuleIdOf[to] -= 1;
+        delete _capsulesMap[to][capsuleId];
+
+        payable(capsule.from).transfer(capsule.value);
+
+        emit UndidCapsuleSend(capsuleId, capsule.from, to, capsule.unlocksAt, capsule.value);
     }
 
     // Opens a capsule and claims the value inside:
@@ -79,7 +101,7 @@ contract Timecapsule {
         _capsulesMap[to][capsuleId].opened = true;
         _pendingBalanceOf[to] -= capsule.value;
 
-        payable(msg.sender).transfer(capsule.value);
+        payable(to).transfer(capsule.value);
 
         emit CapsuleOpened(capsuleId, to, capsule.value);
     }

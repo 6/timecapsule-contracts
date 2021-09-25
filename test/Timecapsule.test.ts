@@ -1,6 +1,6 @@
 import { ethers } from 'hardhat';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
-import { BigNumber, Contract, ContractFactory } from 'ethers';
+import { BigNumber, Contract, ContractFactory, constants } from 'ethers';
 
 describe('Timecapsule', () => {
   // Dec 25, 2029
@@ -13,11 +13,12 @@ describe('Timecapsule', () => {
   let owner: SignerWithAddress;
   let signer1: SignerWithAddress;
   let signer2: SignerWithAddress;
+  let signer3: SignerWithAddress;
 
   beforeEach(async () => {
     contractFactory = await ethers.getContractFactory('Timecapsule');
     contract = await contractFactory.deploy();
-    [owner, signer1, signer2] = await ethers.getSigners();
+    [owner, signer1, signer2, signer3] = await ethers.getSigners();
   });
 
   describe('initial deployment', () => {
@@ -31,9 +32,11 @@ describe('Timecapsule', () => {
       expect(await contract.getCapsulesCount(signer2.address)).toEqual(BigNumber.from(0));
       expect(await contract.getPendingBalance(signer2.address)).toEqual(BigNumber.from(0));
 
-      await contract
+      const tx = await contract
         .connect(signer1)
         .send(signer2.address, futureTimestamp, { value: ethers.utils.parseEther('1.23') });
+      const txReceipt = await tx.wait();
+      const block = await txReceipt.events[0].getBlock();
 
       expect(await contract.getCapsulesCount(signer2.address)).toEqual(BigNumber.from(1));
       expect(await contract.getPendingBalance(signer2.address)).toEqual(
@@ -43,6 +46,7 @@ describe('Timecapsule', () => {
       const capsule = await contract.getCapsule(signer2.address, 0);
       expect(capsule.from).toEqual(signer1.address);
       expect(capsule.value).toEqual(ethers.utils.parseEther('1.23'));
+      expect(capsule.createdAt).toEqual(BigNumber.from(block.timestamp));
       expect(capsule.unlocksAt).toEqual(futureTimestamp);
     });
 
@@ -182,6 +186,92 @@ describe('Timecapsule', () => {
       );
 
       expect(await contract.owner()).toEqual(owner.address);
+    });
+  });
+
+  describe('undoSend', () => {
+    describe('can be undone', () => {
+      beforeEach(async () => {
+        await contract
+          .connect(signer1)
+          .send(signer2.address, futureTimestamp, { value: ethers.utils.parseEther('1.23') });
+      });
+
+      it('transfers balance back to sender address', async () => {
+        const originalBalance = await signer1.getBalance();
+
+        const tx = await contract.connect(signer1).undoSend(signer2.address, 0);
+        const txReceipt = await tx.wait();
+        const txFee = txReceipt.effectiveGasPrice * txReceipt.gasUsed;
+
+        const newBalance = await signer1.getBalance();
+        expect(newBalance).toEqual(originalBalance.add(ethers.utils.parseEther('1.23')).sub(txFee));
+      });
+
+      it('deletes the capsule', async () => {
+        await contract.connect(signer1).undoSend(signer2.address, 0);
+
+        // returns nullish struct by default:
+        const capsule = await contract.getCapsule(signer2.address, 0);
+        expect(capsule.from).toEqual(constants.AddressZero);
+        expect(capsule.value).toEqual(BigNumber.from(0));
+      });
+
+      it('reduces the pending balance and capsules count', async () => {
+        expect(await contract.getCapsulesCount(signer2.address)).toEqual(BigNumber.from(1));
+        expect(await contract.getPendingBalance(signer2.address)).toEqual(
+          ethers.utils.parseEther('1.23'),
+        );
+
+        await contract.connect(signer1).undoSend(signer2.address, 0);
+
+        expect(await contract.getCapsulesCount(signer2.address)).toEqual(BigNumber.from(0));
+        expect(await contract.getPendingBalance(signer2.address)).toEqual(BigNumber.from(0));
+      });
+
+      it('emits event', async () => {
+        const tx = await contract.connect(signer1).undoSend(signer2.address, 0);
+        expect(tx).toHaveEmittedWith(contract, 'UndidCapsuleSend', [
+          BigNumber.from(0),
+          signer1.address,
+          signer2.address,
+          futureTimestamp,
+          ethers.utils.parseEther('1.23'),
+        ]);
+      });
+    });
+
+    describe('msg.sender did not send the capsule', () => {
+      beforeEach(async () => {
+        await contract
+          .connect(signer1)
+          .send(signer2.address, futureTimestamp, { value: ethers.utils.parseEther('1.23') });
+      });
+
+      it('reverts', async () => {
+        await expect(contract.connect(signer3).undoSend(signer2.address, 0)).toBeRevertedWith(
+          'You did not send this capsule',
+        );
+      });
+    });
+
+    describe('capsule already opened', () => {
+      beforeEach(async () => {
+        await contract
+          .connect(signer1)
+          .send(signer2.address, pastTimestamp, { value: ethers.utils.parseEther('1.23') });
+        await contract.connect(signer2).open(0);
+      });
+
+      it('reverts', async () => {
+        await expect(contract.connect(signer1).undoSend(signer2.address, 0)).toBeRevertedWith(
+          'Capsule already opened',
+        );
+      });
+    });
+
+    describe('undo capability expired', () => {
+      // TODO: figure out how to test this
     });
   });
 });
