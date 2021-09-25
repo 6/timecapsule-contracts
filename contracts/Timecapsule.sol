@@ -12,13 +12,14 @@ contract Timecapsule {
 
     address public owner;
 
-    // Mapping of { recipientAddress => { capsuleId => Capsule } }
+    // Mapping of recipientAddress => { capsuleId => Capsule }
     mapping(address => mapping(uint256 => Capsule)) private _capsulesMap;
 
     // Mapping of recipientAddress => total pending capsule balance
     mapping(address => uint256) public _pendingBalanceOf;
 
-    // Mapping of recipientAddress to the next capsuleID to use:
+    // Mapping of recipientAddress to the next capsuleID to use (incrementing ID
+    // starting with 0):
     mapping(address => uint256) private _nextCapsuleIdOf;
 
     event CapsuleSent(uint256 indexed capsuleId, address indexed from, address indexed to, uint256 unlocksAt, uint256 value);
@@ -105,6 +106,15 @@ contract Timecapsule {
 
     function getCapsule(address account, uint256 capsuleId) external view returns (Capsule memory) {
         return _capsulesMap[account][capsuleId];
+    }
+
+    function getCapsules(address account) external view returns (Capsule[] memory) {
+        Capsule[] memory capsules = new Capsule[](_nextCapsuleIdOf[account]);
+
+        for (uint256 i = 0; i < _nextCapsuleIdOf[account]; i++) {
+            capsules[i] = _capsulesMap[account][i];
+        }
+        return capsules;
     }
 
     function getPendingBalance(address account) external view returns (uint256) {

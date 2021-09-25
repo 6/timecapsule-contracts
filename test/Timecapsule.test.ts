@@ -192,6 +192,41 @@ describe('Timecapsule', () => {
     });
   });
 
+  describe('getCapsules', () => {
+    describe('account has no capsules', () => {
+      it('returns empty array', async () => {
+        expect(await contract.getCapsules(signer2.address)).toEqual([]);
+      });
+    });
+
+    describe('account has multiple capsules', () => {
+      beforeEach(async () => {
+        await contract
+          .connect(signer1)
+          .send(signer2.address, pastTimestamp, { value: ethers.utils.parseEther('1.23') });
+        await contract.connect(signer2).open(0);
+
+        await contract
+          .connect(signer3)
+          .send(signer2.address, futureTimestamp, { value: ethers.utils.parseEther('2') });
+      });
+
+      it('returns all capsules', async () => {
+        const capsules = await contract.getCapsules(signer2.address);
+
+        expect(capsules.length).toEqual(2);
+
+        expect(capsules[0].from).toEqual(signer1.address);
+        expect(capsules[0].opened).toEqual(true);
+        expect(capsules[0].value).toEqual(ethers.utils.parseEther('1.23'));
+
+        expect(capsules[1].from).toEqual(signer3.address);
+        expect(capsules[1].opened).toEqual(false);
+        expect(capsules[1].value).toEqual(ethers.utils.parseEther('2'));
+      });
+    });
+  });
+
   describe('transferOwnership', () => {
     it('transfers ownership to the provided new owner', async () => {
       const tx = await contract.transferOwnership(signer1.address);
