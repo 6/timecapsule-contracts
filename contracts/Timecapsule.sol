@@ -24,7 +24,7 @@ contract Timecapsule {
     event CapsuleSent(uint256 indexed capsuleId, address indexed from, address indexed to, uint256 unlocksAt, uint256 value);
     event CapsuleOpened(uint256 indexed capsuleId, address indexed to, uint256 value);
     event UndidCapsuleSend(uint256 indexed capsuleId, address indexed from, address indexed to, uint256 unlocksAt, uint256 value);
-    event TransferOwnership(address indexed oldOwner, address indexed newOwner);
+    event TransferredOwnership(address indexed oldOwner, address indexed newOwner);
 
     modifier onlyOwner() {
         require(owner == msg.sender, "Must be owner to call");
@@ -120,12 +120,9 @@ contract Timecapsule {
      * newOwner The address to transfer ownership to.
      */
     function transferOwnership(address newOwner) external onlyOwner {
-        // Note: allow "burning" ownership by transferring to zero:
-        // require(newOwner != address(0), "New owner cannot be zero address");
-
         address oldOwner = owner;
         owner = newOwner;
 
-        emit TransferOwnership(oldOwner, newOwner);
+        emit TransferredOwnership(oldOwner, newOwner);
     }
 }

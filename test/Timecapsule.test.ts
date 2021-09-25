@@ -176,7 +176,10 @@ describe('Timecapsule', () => {
   describe('transferOwnership', () => {
     it('transfers ownership to the provided new owner', async () => {
       const tx = await contract.transferOwnership(signer1.address);
-      expect(tx).toHaveEmittedWith(contract, 'TransferOwnership', [owner.address, signer1.address]);
+      expect(tx).toHaveEmittedWith(contract, 'TransferredOwnership', [
+        owner.address,
+        signer1.address,
+      ]);
 
       expect(await contract.owner()).toEqual(signer1.address);
     });
