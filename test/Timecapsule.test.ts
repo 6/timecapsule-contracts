@@ -1,6 +1,7 @@
 import { ethers } from 'hardhat';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { BigNumber, Contract, ContractFactory, constants } from 'ethers';
+import hre from 'hardhat';
 
 describe('Timecapsule', () => {
   // Dec 25, 2029
@@ -271,7 +272,19 @@ describe('Timecapsule', () => {
     });
 
     describe('undo capability expired', () => {
-      // TODO: figure out how to test this
+      beforeEach(async () => {
+        await contract
+          .connect(signer1)
+          .send(signer2.address, futureTimestamp, { value: ethers.utils.parseEther('1.23') });
+
+        hre.timeAndMine.increaseTime('2 days');
+      });
+
+      it('reverts', async () => {
+        await expect(contract.connect(signer1).undoSend(signer2.address, 0)).toBeRevertedWith(
+          'Undo capability expired',
+        );
+      });
     });
   });
 });

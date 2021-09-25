@@ -1,4 +1,5 @@
 import '@nomiclabs/hardhat-waffle';
+import '@atixlabs/hardhat-time-n-mine';
 import dotenv from 'dotenv';
 
 dotenv.config();
